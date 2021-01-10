@@ -3,6 +3,8 @@ from django.db import models, router, transaction
 from django.db.models.functions import Now
 from django.db.models.signals import post_save, pre_save
 from django.utils.translation import gettext_lazy as _
+from django.conf import settings
+from .middleware import  get_current_user
 
 from model_utils.fields import (
     AutoCreatedField,
@@ -39,6 +41,48 @@ class TimeStampedModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+
+class TimeStampedModelWithCreator(TimeStampedModel):
+    class Meta:
+        abstract = True
+
+    """
+    Abstract base class with a creation
+    and modification date and time
+    """
+
+    class Meta:
+        abstract = True
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Created By"),
+        editable=False,
+        blank=True,
+        null=True,
+        related_name="created_%(class)ss",
+        on_delete=models.SET_NULL,
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("Updated By"),
+        editable=True,
+        blank=True,
+        null=True,
+        related_name="updated_%(class)ss",
+        on_delete=models.SET_NULL,
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.created_by:
+            self.created_by = get_current_user()
+        self.updated_by = get_current_user()
+        super(TimeStampedModelWithCreator, self).save(*args, **kwargs)
+
+    save.alters_data = True
+
 
 
 class TimeFramedModel(models.Model):
